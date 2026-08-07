@@ -118,6 +118,21 @@ The shortcuts still do everything they did — `n` to rename, `+`/`-` for knob
 count, `i` for scroll direction. Settings is the discoverable path; the keys are
 the fast one.
 
+## Tests
+
+```sh
+uv run pytest
+```
+
+55 tests covering the value range and clamping, what goes on the wire, the
+feedback-loop guard, loopback echo suppression, config round trips, and the
+settings screen. The Element Lua script is run through a real `lua` interpreter
+with the `el.*` modules stubbed, so its emit logic is tested rather than
+eyeballed — those tests skip if no `lua` is installed.
+
+MIDI-facing tests use a fake port layer, so the suite needs no IAC bus and
+touches no real config file.
+
 ## Configuration
 
 Knob count, names and CC assignments live in `~/.config/pyknobs/config.toml`,

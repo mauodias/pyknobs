@@ -18,3 +18,4 @@ rec
 
 # locally built Element (see BUILD-ELEMENT.md)
 dist/
+.DS_Store

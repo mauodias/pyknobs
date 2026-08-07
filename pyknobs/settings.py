@@ -31,9 +31,14 @@ class Settings:
     out_port: str
 
 
-def port_options(names: list[str]) -> list[tuple[str, str]]:
-    """Dropdown options, always including the configured default."""
-    seen = list(dict.fromkeys([*names, PORT_NAME]))
+def port_options(names: list[str], current: str = "") -> list[tuple[str, str]]:
+    """Dropdown options for a port picker.
+
+    Always includes `current` even when CoreMIDI isn't reporting it — a bus
+    that's been switched off in Audio MIDI Setup since the setting was saved
+    would otherwise be an illegal value and take the whole screen down.
+    """
+    seen = [n for n in dict.fromkeys([*names, PORT_NAME, current]) if n]
     return [(name, name) for name in seen]
 
 
@@ -167,7 +172,7 @@ class SettingsScreen(ModalScreen[Settings | None]):
                 with Horizontal():
                     yield Label("Output")
                     yield Select(
-                        port_options(mido.get_output_names()),
+                        port_options(mido.get_output_names(), self.start_out),
                         value=self.start_out,
                         allow_blank=False,
                         id="out-port",
@@ -175,7 +180,7 @@ class SettingsScreen(ModalScreen[Settings | None]):
                 with Horizontal():
                     yield Label("Input")
                     yield Select(
-                        port_options(mido.get_input_names()),
+                        port_options(mido.get_input_names(), self.start_in),
                         value=self.start_in,
                         allow_blank=False,
                         id="in-port",
