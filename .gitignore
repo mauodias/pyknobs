@@ -15,3 +15,6 @@ wheels/
 # asciinema recordings
 rec
 *.cast
+
+# locally built Element (see BUILD-ELEMENT.md)
+dist/
