@@ -69,6 +69,7 @@ no restart. It handles the bus disappearing again the same way.
 | `n` | rename the selected knob |
 | `+` | add a knob (on the next free CC) |
 | `-` | remove the selected knob |
+| `,` / `s` | settings |
 | `m` | toggle the raw MIDI monitor |
 | `i` | flip scroll direction (trackpad ↔ wheel mouse) |
 | `r` | reset all |
@@ -102,6 +103,20 @@ cancels.
 The border shows **6 characters**; longer names are stored in full and displayed
 with an ellipsis, and the edit field scrolls to keep the cursor in view. Eight
 knobs fit a 96-column terminal — beyond that the rack scrolls.
+
+## Settings
+
+Press `,` (or `s`) for a settings view covering knob count, per-knob names and
+CC numbers, and the MIDI in/out ports — the port list is read from CoreMIDI, so
+it shows the buses you actually have. Changing ports reconnects immediately, no
+restart. Saving writes everything to the config file.
+
+Duplicate or out-of-range CCs are rejected with a reason rather than silently
+accepted.
+
+The shortcuts still do everything they did — `n` to rename, `+`/`-` for knob
+count, `i` for scroll direction. Settings is the discoverable path; the keys are
+the fast one.
 
 ## Configuration
 

@@ -11,12 +11,14 @@ import mido
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import HorizontalScroll
+from textual.screen import Screen
 from textual.widgets import Footer, Header, RichLog
 
 from . import config as config_module
 from .config import CHANNEL, MAX_KNOBS, MIDI_MAX, Config
 from .knob import Knob
 from .midi import PORT_NAME, MidiIO
+from .settings import Settings, SettingsScreen
 
 # Knob values are the raw 7-bit MIDI value, edited and displayed as-is. Nothing
 # is scaled, so values survive a host round trip unchanged.
@@ -116,6 +118,7 @@ class PyKnobs(App[None]):
         Binding("r", "reset", "reset all", priority=True),
         Binding("m", "toggle_raw", "raw monitor", priority=True),
         Binding("i", "toggle_scroll", "invert scroll", priority=True),
+        Binding("comma,s", "settings", "settings", priority=True),
         Binding("q", "quit", "quit", priority=True),
     ]
 
@@ -220,8 +223,51 @@ class PyKnobs(App[None]):
 
     def check_action(self, action: str, parameters) -> bool:
         # While renaming, every keystroke belongs to the text field — including
-        # "q" and "n". Escape is the way out.
-        return self.renaming is None
+        # "q" and "n". Escape is the way out. The settings modal owns its keys
+        # for the same reason.
+        return self.renaming is None and isinstance(self.screen, Screen) and not isinstance(
+            self.screen, SettingsScreen
+        )
+
+    def action_settings(self) -> None:
+        self.push_screen(
+            SettingsScreen(self.config, self.midi.in_port_name, self.midi.out_port_name),
+            self._apply_settings,
+        )
+
+    def _apply_settings(self, settings: Settings | None) -> None:
+        if settings is None:
+            return
+
+        self.config.knobs = settings.knobs
+        self.config.in_port = settings.in_port
+        self.config.out_port = settings.out_port
+        self.config.save()
+
+        ports_changed = (
+            settings.in_port != self.midi.in_port_name
+            or settings.out_port != self.midi.out_port_name
+        )
+        self.call_later(self._rebuild_rack, ports_changed, settings)
+
+    async def _rebuild_rack(self, ports_changed: bool, settings: Settings) -> None:
+        rack = self.query_one("#rack", HorizontalScroll)
+        await rack.remove_children()
+        self.values = (self.values + [0] * len(settings.knobs))[: len(settings.knobs)]
+        self._knobs = [Knob(s.cc, s.name) for s in settings.knobs]
+        await rack.mount_all(self._knobs)
+        for index, knob in enumerate(self._knobs):
+            knob.value = self.values[index]
+        self.cursor = min(self.cursor, self.knob_count - 1)
+        self._refresh_cursor()
+
+        if ports_changed:
+            self.midi.close()
+            self.midi.in_port_name = settings.in_port
+            self.midi.out_port_name = settings.out_port
+            self._sent.clear()
+            self._connect(announce_failure=True)
+        self._log(f"[#facc15]⚙[/] settings saved — {self.knob_count} knobs")
 
     def action_select(self, delta: int) -> None:
         self.cursor = (self.cursor + delta) % self.knob_count
@@ -451,11 +497,11 @@ def main() -> None:
         "--raw", action="store_true", help="start with the raw monitor pane enabled"
     )
     parser.add_argument(
-        "--in-port", metavar="NAME", default=PORT_NAME,
-        help=f"MIDI port to listen on (default: {PORT_NAME!r})",
+        "--in-port", metavar="NAME",
+        help=f"MIDI port to listen on (default: saved setting, else {PORT_NAME!r})",
     )
     parser.add_argument(
-        "--out-port", metavar="NAME", default=PORT_NAME,
+        "--out-port", metavar="NAME",
         help="MIDI port to transmit on; use a different bus from --in-port when "
              "the host would otherwise hear its own feedback",
     )
@@ -469,9 +515,10 @@ def main() -> None:
         parser.error(f"--knobs must be between 1 and {MAX_KNOBS}")
 
     config = config_module.load(args.config, args.knobs)
-    PyKnobs(
-        config, raw=args.raw, in_port=args.in_port, out_port=args.out_port
-    ).run()
+    # A flag wins over the saved setting, which wins over the default bus.
+    in_port = args.in_port or config.in_port or PORT_NAME
+    out_port = args.out_port or config.out_port or PORT_NAME
+    PyKnobs(config, raw=args.raw, in_port=in_port, out_port=out_port).run()
 
 
 if __name__ == "__main__":

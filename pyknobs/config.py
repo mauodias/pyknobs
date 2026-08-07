@@ -30,6 +30,8 @@ class Config:
     # event when you swipe down, which would raise the knob you just pushed
     # down. Inverting matches the trackpad; turn it off for a wheel mouse.
     invert_scroll: bool = True
+    in_port: str = ""
+    out_port: str = ""
 
     @property
     def cc_numbers(self) -> tuple[int, ...]:
@@ -48,6 +50,10 @@ class Config:
             "# pyknobs knob layout\n\n",
             "# true suits a macOS trackpad (natural scrolling); set false for a wheel mouse\n",
             f"invert_scroll = {str(self.invert_scroll).lower()}\n\n",
+            "# MIDI ports. Keep these on different IAC buses when the host\n"
+            "# listens to the bus it transmits on, or it will hear its own echo.\n",
+            f"in_port = {_toml_string(self.in_port)}\n",
+            f"out_port = {_toml_string(self.out_port)}\n\n",
         ]
         for knob in self.knobs:
             lines.append("[[knobs]]\n")
@@ -77,9 +83,12 @@ def load(path: Path = DEFAULT_PATH, count: int | None = None) -> Config:
     """
     knobs: list[KnobSpec] = []
     invert_scroll = True
+    in_port = out_port = ""
     if path.exists():
         data = tomllib.loads(path.read_text())
         invert_scroll = bool(data.get("invert_scroll", True))
+        in_port = str(data.get("in_port", ""))
+        out_port = str(data.get("out_port", ""))
         for entry in data.get("knobs", []):
             knobs.append(
                 KnobSpec(
@@ -100,4 +109,10 @@ def load(path: Path = DEFAULT_PATH, count: int | None = None) -> Config:
                 used.add(cc)
                 knobs.append(KnobSpec(name=f"Knob {len(knobs) + 1}", cc=cc))
 
-    return Config(knobs=knobs[:MAX_KNOBS], path=path, invert_scroll=invert_scroll)
+    return Config(
+        knobs=knobs[:MAX_KNOBS],
+        path=path,
+        invert_scroll=invert_scroll,
+        in_port=in_port,
+        out_port=out_port,
+    )
