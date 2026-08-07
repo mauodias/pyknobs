@@ -68,11 +68,13 @@ class PyKnobs(App[None]):
     }
 
     /* Fixed width: knobs stay readable and the rack scrolls when there are
-       more of them than fit, rather than shrinking into illegibility. */
+       more of them than fit, rather than shrinking into illegibility.
+       Width 12 leaves room for a 6-character label; the borders sit flush so
+       eight knobs still fit a 96-column terminal. */
     Knob {
-        width: 10;
+        width: 12;
         height: 17;
-        margin: 0 1;
+        margin: 0;
         content-align: center middle;
         border: round #3f3f52;
         border-title-align: center;

@@ -11,6 +11,10 @@ from textual.widgets import Static
 BAR_ROWS = 14
 BAR_WIDTH = 5
 
+# Characters of the name the top border can show at the widget's width. Names
+# may be longer — Textual truncates them with an ellipsis for display.
+LABEL_WIDTH = 6
+
 # Bottom-to-top colour ramp for the bar. Interpolated per row, so the number of
 # rows can change without touching the palette.
 GRADIENT = (
@@ -87,7 +91,9 @@ class Knob(Static):
             self.border_title = self.knob_name
         else:
             # Block cursor makes it obvious the border has become a text field.
-            self.border_title = f"{self.editing}█"
+            # Show the tail of the buffer so the cursor stays visible while
+            # typing a name longer than the border can display.
+            self.border_title = f"{self.editing[-(LABEL_WIDTH - 1):]}█"
         self.border_subtitle = f"CC{self.cc}"
 
     def watch_knob_name(self) -> None:

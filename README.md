@@ -99,6 +99,10 @@ Renaming edits the name in the knob's top border. The existing name starts out
 selected — typing replaces it, backspace edits it. `Enter` commits, `Esc`
 cancels.
 
+The border shows **6 characters**; longer names are stored in full and displayed
+with an ellipsis, and the edit field scrolls to keep the cursor in view. Eight
+knobs fit a 96-column terminal — beyond that the rack scrolls.
+
 ## Configuration
 
 Knob count, names and CC assignments live in `~/.config/pyknobs/config.toml`,
