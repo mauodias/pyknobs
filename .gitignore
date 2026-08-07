@@ -11,3 +11,7 @@ wheels/
 
 # Local Claude Code settings
 .claude/settings.local.json
+
+# asciinema recordings
+rec
+*.cast
