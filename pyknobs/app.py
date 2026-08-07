@@ -14,28 +14,17 @@ from textual.containers import HorizontalScroll
 from textual.widgets import Footer, Header, RichLog
 
 from . import config as config_module
-from .config import CHANNEL, MAX_KNOBS, Config
+from .config import CHANNEL, MAX_KNOBS, MIDI_MAX, Config
 from .knob import Knob
 from .midi import PORT_NAME, MidiIO
 
-# Knob values are edited and displayed on a 0–100 scale; the wire stays strictly
-# 7-bit, so every value is scaled on the way in and out.
-DISPLAY_MAX = 100
-MIDI_MAX = 127
-
+# Knob values are the raw 7-bit MIDI value, edited and displayed as-is. Nothing
+# is scaled, so values survive a host round trip unchanged.
 NAME_MAX = 12
 
 # How long after sending a value an identical inbound one counts as our own
 # loopback echo rather than a genuine host update.
 ECHO_WINDOW = 0.5
-
-
-def to_midi(value: int) -> int:
-    return round(value * MIDI_MAX / DISPLAY_MAX)
-
-
-def to_display(value: int) -> int:
-    return round(value * DISPLAY_MAX / MIDI_MAX)
 
 
 def describe(message: mido.Message) -> str:
@@ -120,7 +109,7 @@ class PyKnobs(App[None]):
         Binding("shift+up,K", "nudge(10)", "+10", priority=True),
         Binding("shift+down,J", "nudge(-10)", "-10", priority=True),
         Binding("home", "set_value(0)", "min", priority=True),
-        Binding("end", "set_value(100)", "max", priority=True),
+        Binding("end", "set_value(127)", "max", priority=True),
         Binding("n", "rename", "rename", priority=True),
         Binding("plus,equals_sign,=,+", "add_knob", "add knob", priority=True),
         Binding("minus,-", "remove_knob", "drop knob", priority=True),
@@ -364,20 +353,16 @@ class PyKnobs(App[None]):
     # -- state ----------------------------------------------------------
 
     def _apply(self, index: int, value: int, *, transmit: bool) -> None:
-        value = max(0, min(DISPLAY_MAX, value))
+        value = max(0, min(MIDI_MAX, value))
         if value == self.values[index]:
             return
         self.values[index] = value
         self._knob(index).value = value
         if transmit:
-            midi_value = to_midi(value)
             cc = self.config.knobs[index].cc
-            self._sent[cc] = (midi_value, monotonic())
-            self.midi.send(cc, midi_value)
-            self._log(
-                f"[#22d3ee]→[/] CC[b]{cc}[/]"
-                f" [#e5e7eb]{value:>3}[/] [#4b5563]({midi_value})[/]"
-            )
+            self._sent[cc] = (value, monotonic())
+            self.midi.send(cc, value)
+            self._log(f"[#22d3ee]→[/] CC[b]{cc}[/] [#e5e7eb]{value:>3}[/]")
 
     def _on_midi_thread(self, message: mido.Message) -> None:
         """Called on rtmidi's thread; hand off to the UI thread."""
@@ -410,13 +395,12 @@ class PyKnobs(App[None]):
                 self._log(f"[#4b5563]·[/] [#6b7280]{describe(message)} — our own echo[/]")
             return
 
-        display = to_display(message.value)
         # transmit=False is the feedback-loop guard: host updates change local
         # state and the display, but are never echoed back out.
-        self._apply(index, display, transmit=False)
+        self._apply(index, message.value, transmit=False)
         self._log(
             f"[#f472b6]←[/] CC[b]{message.control}[/]"
-            f" [#e5e7eb]{display:>3}[/] [#4b5563]({message.value}) host[/]"
+            f" [#e5e7eb]{message.value:>3}[/] [#4b5563]host[/]"
         )
 
 

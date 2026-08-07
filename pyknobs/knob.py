@@ -8,6 +8,8 @@ from textual.message import Message
 from textual.reactive import reactive
 from textual.widgets import Static
 
+from .config import MIDI_MAX
+
 BAR_ROWS = 14
 BAR_WIDTH = 5
 
@@ -47,7 +49,7 @@ def _row_color(row: int, rows: int) -> str:
 
 
 class Knob(Static):
-    """One knob: its name, a gradient level bar, its 0–100 readout, its CC."""
+    """One knob: its name, a gradient level bar, its 0–127 readout, its CC."""
 
     value: reactive[int] = reactive(0)
     active: reactive[bool] = reactive(False)
@@ -134,7 +136,7 @@ class Knob(Static):
             self.post_message(self.RenameRequested(self))
 
     def render(self) -> Text:
-        filled = self.value / 100 * BAR_ROWS
+        filled = self.value / MIDI_MAX * BAR_ROWS
         whole = int(filled)
         remainder = filled - whole
 

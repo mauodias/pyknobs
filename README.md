@@ -20,7 +20,7 @@ comes back and lands on the right control.
 ## What it does
 
 - 1–16 virtual rotary controls, each on its own MIDI CC, channel 1
-- Values edited and displayed **0–100**; the wire stays strictly 7-bit (0–127)
+- Values edited and displayed as the raw 7-bit MIDI value, **0–127**
 - Live feedback log of everything sent and received, with timestamps
 - A raw monitor that shows *why* an inbound message didn't match a knob
 - Auto-connect: enable the IAC bus while it's running and it picks it up
@@ -65,7 +65,7 @@ no restart. It handles the bus disappearing again the same way.
 | `↑` `↓` / `k` `j` | ±1 |
 | `shift+↑` `shift+↓` | ±10 |
 | `1`–`9` | jump to a knob |
-| `home` / `end` | 0 / 100 |
+| `home` / `end` | 0 / 127 |
 | `n` | rename the selected knob |
 | `+` | add a knob (on the next free CC) |
 | `-` | remove the selected knob |
@@ -125,9 +125,13 @@ view.
 
 ## Values
 
-Knobs read and are edited on a **0–100** scale. The wire stays strictly 7-bit:
-values are scaled to 0–127 on send and back on receive. The feedback log shows
-both — `→ CC10  64 (81)`.
+Knobs show the raw 7-bit MIDI value, **0–127** — the number actually on the
+wire. Nothing is scaled in either direction, so a value survives a host round
+trip unchanged: send `100`, get `100` back.
+
+There's no percentage readout on purpose. The bar already shows the proportion,
+and a number restating it would just crowd the row. The bar height is the
+percentage; the digits are the MIDI value.
 
 ## Feedback loop protection
 

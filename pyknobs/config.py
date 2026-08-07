@@ -11,6 +11,7 @@ DEFAULT_PATH = Path.home() / ".config" / "pyknobs" / "config.toml"
 DEFAULT_KNOB_COUNT = 8
 FIRST_CC = 10
 CHANNEL = 0  # MIDI channel 1, zero-indexed on the wire
+MIDI_MAX = 127  # standard 7-bit unsigned range is 0..127
 
 MAX_KNOBS = 16  # a full CC row; beyond this the bars stop being readable
 
