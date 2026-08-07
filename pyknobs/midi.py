@@ -41,9 +41,15 @@ class MidiIO:
         self,
         on_message: Callable[[mido.Message], None],
         port_name: str = PORT_NAME,
+        in_port_name: str | None = None,
+        out_port_name: str | None = None,
     ) -> None:
         self._on_message = on_message
-        self.port_name = port_name
+        # Input and output can sit on different buses. That matters because IAC
+        # is a loopback: if a host listens on the same bus it transmits to, its
+        # own feedback comes straight back and drives it in circles.
+        self.in_port_name = in_port_name or port_name
+        self.out_port_name = out_port_name or port_name
         self._inport: mido.ports.BaseInput | None = None
         self._outport: mido.ports.BaseOutput | None = None
         self.error: str | None = None
@@ -55,31 +61,33 @@ class MidiIO:
     @property
     def status(self) -> str:
         if self._inport and self._outport:
-            return f"{self.port_name} — in/out"
+            if self.in_port_name == self.out_port_name:
+                return f"{self.out_port_name} — in/out"
+            return f"out {self.out_port_name} · in {self.in_port_name}"
         if self._outport:
-            return f"{self.port_name} — out only"
+            return f"{self.out_port_name} — out only"
         if self._inport:
-            return f"{self.port_name} — in only"
+            return f"{self.in_port_name} — in only"
         return "offline"
 
     def port_present(self) -> bool:
-        """Whether the port is currently advertised by CoreMIDI."""
+        """Whether either configured port is currently advertised by CoreMIDI."""
         return (
-            find_port(mido.get_output_names(), self.port_name) is not None
-            or find_port(mido.get_input_names(), self.port_name) is not None
+            find_port(mido.get_output_names(), self.out_port_name) is not None
+            or find_port(mido.get_input_names(), self.in_port_name) is not None
         )
 
     def open(self) -> None:
         self.error = None
-        out_name = find_port(mido.get_output_names(), self.port_name)
-        in_name = find_port(mido.get_input_names(), self.port_name)
+        out_name = find_port(mido.get_output_names(), self.out_port_name)
+        in_name = find_port(mido.get_input_names(), self.in_port_name)
 
         if out_name is None and in_name is None:
-            self.error = (
-                f"{self.port_name!r} not found — enable it in "
-                "Audio MIDI Setup ▸ Window ▸ Show MIDI Studio ▸ IAC Driver"
-            )
-            return
+            missing = self.out_port_name
+            if self.in_port_name != self.out_port_name:
+                missing = f"{self.out_port_name!r} / {self.in_port_name!r}"
+                return self._not_found(missing)
+            return self._not_found(repr(missing))
 
         try:
             if out_name is not None:
@@ -87,8 +95,14 @@ class MidiIO:
             if in_name is not None:
                 self._inport = mido.open_input(in_name, callback=self._on_message)
         except OSError as exc:  # port exists but is unavailable
-            self.error = f"could not open {self.port_name!r}: {exc}"
+            self.error = f"could not open IAC port: {exc}"
             self.close()
+
+    def _not_found(self, what: str) -> None:
+        self.error = (
+            f"{what} not found — enable it in "
+            "Audio MIDI Setup ▸ Window ▸ Show MIDI Studio ▸ IAC Driver"
+        )
 
     def send(self, control: int, value: int) -> None:
         if self._outport is None:

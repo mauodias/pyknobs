@@ -142,6 +142,49 @@ IAC Bus 1 is also a *loopback* — anything sent to it arrives back on our own
 input. Values we just sent are recognised and ignored for half a second, so our
 own echo isn't misreported as a host update.
 
+## Host feedback: getting values back from Element
+
+MIDI 1.0 has no "read this CC" message — a controller can't ask a host for
+state. The host has to push it. `element/` holds a pair of Lua scripts for
+[Kushview Element](https://kushview.net/element/) that do exactly that:
+
+| File | Role |
+| --- | --- |
+| `element/pyknobs.lua` | DSP script: 8 parameter inputs → CC 10–17 on channel 1 |
+| `element/pyknobsui.lua` | UI script: a **Sync** button that re-sends everything |
+
+Paste them into a **Script** node's `DSP` and `UI` editors (session tree →
+expand the node). Then connect each plugin parameter to a `Knob N` **control**
+input, and the script's MIDI out to a **MIDI Output Device** node.
+
+A CC is emitted only when its 0–127 value changes. The cache starts empty, so
+loading the session pushes all current values — and **Sync** clears it on
+demand, which is as close to "ask the host for state" as MIDI 1.0 allows.
+
+Set **`Active`** to the number of parameters you actually wired. Lua can't tell
+whether a control port is connected, and an unconnected one reads `0.0`
+forever — without this it would broadcast a bogus `0` and flatten that knob.
+
+### Use two buses
+
+IAC is a loopback: everything sent to a bus comes back to everyone listening,
+including the sender. If Element both transmits to and listens on Bus 1, its own
+feedback returns through its MIDI Input Device and drives its plugins in a loop.
+
+Split the directions:
+
+```sh
+uv run pyknobs --out-port "IAC Driver Bus 1" --in-port "IAC Driver Bus 2"
+```
+
+```
+pyknobs ──► Bus 1 ──► Element  (control)
+Element ──► Bus 2 ──► pyknobs  (feedback)
+```
+
+Add Bus 2 in Audio MIDI Setup ▸ IAC Driver. With one bus it still works, but
+only if Element doesn't listen to the bus it transmits on.
+
 ## When the host's updates don't show up
 
 Nothing inbound is dropped silently. Press `m` for the raw monitor and every

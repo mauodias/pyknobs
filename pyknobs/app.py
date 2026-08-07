@@ -119,7 +119,13 @@ class PyKnobs(App[None]):
         Binding("q", "quit", "quit", priority=True),
     ]
 
-    def __init__(self, config: Config | None = None, raw: bool = False) -> None:
+    def __init__(
+        self,
+        config: Config | None = None,
+        raw: bool = False,
+        in_port: str | None = None,
+        out_port: str | None = None,
+    ) -> None:
         super().__init__()
         self.config = config or config_module.load()
         self.values = [0] * len(self.config.knobs)
@@ -132,7 +138,9 @@ class PyKnobs(App[None]):
         # input. Remember what we just sent so the echo isn't mistaken for the
         # host talking to us.
         self._sent: dict[int, tuple[int, float]] = {}
-        self.midi = MidiIO(self._on_midi_thread)
+        self.midi = MidiIO(
+            self._on_midi_thread, in_port_name=in_port, out_port_name=out_port
+        )
 
     @property
     def knob_count(self) -> int:
@@ -442,6 +450,15 @@ def main() -> None:
     parser.add_argument(
         "--raw", action="store_true", help="start with the raw monitor pane enabled"
     )
+    parser.add_argument(
+        "--in-port", metavar="NAME", default=PORT_NAME,
+        help=f"MIDI port to listen on (default: {PORT_NAME!r})",
+    )
+    parser.add_argument(
+        "--out-port", metavar="NAME", default=PORT_NAME,
+        help="MIDI port to transmit on; use a different bus from --in-port when "
+             "the host would otherwise hear its own feedback",
+    )
     args = parser.parse_args()
 
     if args.monitor:
@@ -452,7 +469,9 @@ def main() -> None:
         parser.error(f"--knobs must be between 1 and {MAX_KNOBS}")
 
     config = config_module.load(args.config, args.knobs)
-    PyKnobs(config, raw=args.raw).run()
+    PyKnobs(
+        config, raw=args.raw, in_port=args.in_port, out_port=args.out_port
+    ).run()
 
 
 if __name__ == "__main__":
